@@ -30,10 +30,10 @@
 #include "Arduino.h"
 #include "eeprom_93c86.h"
 
-#define EEPROM_CS  11
-#define EEPROM_CLK 12
-#define EEPROM_DI   9
-#define EEPROM_DO   8
+static int cs_pin  = 11;
+static int clk_pin = 12;
+static int di_pin  =  9;
+static int do_pin  =  8;
 
 enum {
      OP_READ,
@@ -68,9 +68,9 @@ struct opcode ops[] = {
 
 void eeprom_clk(void)
 {
-     digitalWrite(EEPROM_CLK, HIGH);
+     digitalWrite(clk_pin, HIGH);
      delayMicroseconds(1);
-     digitalWrite(EEPROM_CLK, LOW);
+     digitalWrite(clk_pin, LOW);
      delayMicroseconds(1);
 }
 
@@ -78,27 +78,27 @@ bool eeprom_recv_bit(void)
 {
      bool data;
 
-     digitalWrite(EEPROM_CLK, HIGH);
+     digitalWrite(clk_pin, HIGH);
      delayMicroseconds(1);
-     data = digitalRead(EEPROM_DO);
-     digitalWrite(EEPROM_CLK, LOW);
+     data = digitalRead(do_pin);
+     digitalWrite(clk_pin, LOW);
      delayMicroseconds(1);
      return data;
 }
 
 void eeprom_send_bit(bool bit)
 {
-     digitalWrite(EEPROM_DI, bit);
+     digitalWrite(di_pin, bit);
      eeprom_clk();
 }
 
 void eeprom_send_bits(unsigned int data, unsigned char len)
 {
      if (len == 0)
-	  return;
+         return;
 
      for (int i = len - 1; i >= 0; i--) {
-	  eeprom_send_bit(!!(data & (1 << i)));
+         eeprom_send_bit(!!(data & (1 << i)));
      }
 }
 
@@ -107,10 +107,10 @@ unsigned int eeprom_recv_bits(unsigned char len)
      unsigned int data = 0;
 
      if (len == 0)
-	  return 0;
+         return 0;
 
      for (int i = 0; i < len; i++) {
-	  data |= eeprom_recv_bit() << (len - i - 1);
+         data |= eeprom_recv_bit() << (len - i - 1);
      }
 
      return data;
@@ -118,10 +118,10 @@ unsigned int eeprom_recv_bits(unsigned char len)
 
 void eeprom_cs(bool en)
 {
-     digitalWrite(EEPROM_CS, en);
+     digitalWrite(cs_pin, en);
      if (en) {
-	  digitalWrite(EEPROM_DI, HIGH);
-	  eeprom_clk();
+         digitalWrite(di_pin, HIGH);
+         eeprom_clk();
      }
 }
 
@@ -131,10 +131,10 @@ int eeprom_do_op(int opcode, int addr, unsigned char data)
      int i;
      int recv;
 
-     pinMode(EEPROM_CS,  OUTPUT);
-     pinMode(EEPROM_CLK, OUTPUT);
-     pinMode(EEPROM_DI,  OUTPUT);
-     pinMode(EEPROM_DO,  INPUT);
+     pinMode(cs_pin,  OUTPUT);
+     pinMode(clk_pin, OUTPUT);
+     pinMode(di_pin,  OUTPUT);
+     pinMode(do_pin,  INPUT);
 
      eeprom_cs(HIGH);
      eeprom_send_bits(op->opcode, op->opcode_len);
@@ -142,14 +142,22 @@ int eeprom_do_op(int opcode, int addr, unsigned char data)
      eeprom_send_bits(data, op->di_len);
      recv = eeprom_recv_bits(op->do_len);
      if (op->rdy) {
-	  for (int i = 0; i < 5000; i++) {
-	       if (digitalRead(EEPROM_DO))
-		    break;
-	       delayMicroseconds(1);
-	  }
+         for (int i = 0; i < 5000; i++) {
+             if (digitalRead(do_pin))
+                 break;
+             delayMicroseconds(1);
+         }
      }
      eeprom_cs(LOW);
      return recv;
+}
+
+void eeprom_init(int _cs, int _clk, int _di, int _do)
+{
+    cs_pin = _cs;
+    clk_pin = _clk;
+    di_pin = _di;
+    do_pin = _do;
 }
 
 void eeprom_ewen()

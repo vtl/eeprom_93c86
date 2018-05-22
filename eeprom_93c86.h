@@ -25,6 +25,7 @@
 extern "C" {
 #endif
 
+void eeprom_init(int _cs, int _clk, int _di, int _do);
 void eeprom_ewen();
 void eeprom_ewds();
 unsigned char eeprom_read(int address);
